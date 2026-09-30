@@ -278,7 +278,7 @@ export function EntryForm({ onSaved }: { onSaved?: (app: Application) => void })
               aria-label="التاريخ Datum"
               value={when.date}
               onChange={(e) => when.setDate(e.target.value)}
-              className={cx(inputClass, 'num w-[9.5rem] px-2', !when.touched && 'text-muted')}
+              className={cx(inputClass, 'num min-w-0 flex-1 px-2 md:w-[9.5rem] md:flex-none', !when.touched && 'text-muted')}
             />
             <input
               type="time"
