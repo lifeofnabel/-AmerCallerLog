@@ -38,8 +38,11 @@ export function getFirebase(): FirebaseServices {
     const auth = getAuth(app);
     // Lokaler Zwischenspeicher: schneller Start und Weiterarbeiten bei kurzem Netzausfall.
     // Maßgeblich bleibt Firestore – der Speicher gleicht sich beim Wiederverbinden ab.
+    // Long-Polling statt Streaming: Manche Virenscanner, Firmen-Proxys und Router halten den Firestore-Stream
+    // zurück – dann kämen Änderungen erst nach dem Neuladen an. Long-Polling kommt überall durch.
     const db = initializeFirestore(app, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+      experimentalForceLongPolling: true,
     });
     if (useEmulators) {
       connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });

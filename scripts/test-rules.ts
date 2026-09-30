@@ -142,6 +142,12 @@ await check('Backup-Status schreiben', () =>
   assertSucceeds(setDoc(doc(staff, 'callerlog_meta/backup'), { lastWeek: '2026-W40', lastAt: serverTimestamp(), lastBy: { uid: 'staff1', name: 'x' } })),
 );
 
+console.log('Einstellungen');
+const rules = { exact: 'block', exactScope: 'always', sameCategory: 'hint', otherCategory: 'hint', updatedAt: serverTimestamp(), updatedBy: { uid: 'staff1', name: 'x' } };
+await check('Mitarbeiter darf Prüfregeln speichern', () => assertSucceeds(setDoc(doc(staff, 'callerlog_meta/settings'), rules)));
+await check('ungültiger Regelwert wird abgelehnt', () => assertFails(setDoc(doc(staff, 'callerlog_meta/settings'), { ...rules, exact: 'kaputt' })));
+await check('ohne EC-Profil keine Regeln', () => assertFails(getDoc(doc(noProfile, 'callerlog_meta/settings'))));
+
 console.log('Gleichzeitig: 4 Geräte × 10 Anträge parallel');
 await check('40 parallele Anträge bekommen 40 verschiedene, lückenlose Nummern', async () => {
   const devices = ['staff1', 'staff2', 'admin', 'staff1'].map((uid) => ({ uid, db: as(uid) }));

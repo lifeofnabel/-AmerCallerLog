@@ -31,7 +31,10 @@ export const CategoryPicker = forwardRef<HTMLDivElement, Props>(function Categor
     }
     if (['ArrowRight', 'ArrowLeft', 'ArrowDown', 'ArrowUp'].includes(e.key)) {
       e.preventDefault();
-      const step = e.key === 'ArrowRight' || e.key === 'ArrowDown' ? 1 : -1;
+      // Rechts nach links: Pfeil links = nächste Kategorie.
+      const rtl = getComputedStyle(e.currentTarget).direction === 'rtl';
+      const forward = e.key === 'ArrowDown' || e.key === (rtl ? 'ArrowLeft' : 'ArrowRight');
+      const step = forward ? 1 : -1;
       const nextIndex = (Math.max(current, 0) + step + CATEGORIES.length) % CATEGORIES.length;
       onChange(CATEGORIES[nextIndex]!);
       buttons.current[nextIndex]?.focus();
@@ -42,7 +45,7 @@ export const CategoryPicker = forwardRef<HTMLDivElement, Props>(function Categor
     <div
       ref={ref}
       role="radiogroup"
-      aria-label="Kategorie"
+      aria-label="الفئة Kategorie"
       tabIndex={-1}
       onKeyDown={onKeyDown}
       className="grid grid-cols-3 gap-1 rounded-md border border-line bg-bg p-[3px] focus:outline-none"
@@ -78,7 +81,7 @@ export const CategoryPicker = forwardRef<HTMLDivElement, Props>(function Categor
             )}
           >
             <span className="ar font-semibold">{label.ar}</span>
-            <span className="text-xs opacity-60">{label.de}</span>
+            <span lang="de" className="text-[11px] opacity-60">{label.de}</span>
           </button>
         );
       })}

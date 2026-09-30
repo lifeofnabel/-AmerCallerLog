@@ -77,7 +77,7 @@ export function RestoreDialog({ open, onClose }: { open: boolean; onClose: () =>
             type="file"
             accept="application/json,.json"
             onChange={(e) => void onFile(e.target.files?.[0])}
-            className="block w-full text-muted file:mr-3 file:rounded-md file:border file:border-line file:bg-raised file:px-3 file:py-1.5 file:text-fg hover:file:bg-hover"
+            className="block w-full text-muted file:me-3 file:rounded-md file:border file:border-line file:bg-raised file:px-3 file:py-1.5 file:text-fg hover:file:bg-hover"
             disabled={busy}
           />
           {fileName !== '' && <p className="mt-1 text-faint">{fileName}</p>}
@@ -86,7 +86,7 @@ export function RestoreDialog({ open, onClose }: { open: boolean; onClose: () =>
         {check !== null && !check.ok && (
           <div role="alert" className="rounded-md border border-danger/40 bg-danger-soft px-3 py-2">
             <p className="font-semibold">Datei ungültig – nichts wurde geändert.</p>
-            <ul className="mt-1 list-disc pl-5 text-muted">
+            <ul className="mt-1 list-disc ps-5 text-muted">
               {check.errors.map((e) => (
                 <li key={e}>{e}</li>
               ))}

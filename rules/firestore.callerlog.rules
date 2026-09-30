@@ -58,3 +58,14 @@ match /callerlog_meta/backup {
     && request.resource.data.keys().hasOnly(['lastWeek', 'lastAt', 'lastBy'])
     && request.resource.data.lastWeek is string;
 }
+
+// Regeln für die Prüfung beim Erfassen (gelten für alle Geräte). Jeder Mitarbeiter darf sie ändern.
+match /callerlog_meta/settings {
+  allow read: if callerlogStaff();
+  allow write: if callerlogStaff()
+    && request.resource.data.keys().hasOnly(['exact', 'exactScope', 'sameCategory', 'otherCategory', 'updatedAt', 'updatedBy'])
+    && request.resource.data.exact in ['block', 'hard', 'hint', 'off']
+    && request.resource.data.exactScope in ['always', 'open', 'days30']
+    && request.resource.data.sameCategory in ['hint', 'off']
+    && request.resource.data.otherCategory in ['hint', 'off'];
+}

@@ -4,12 +4,12 @@ export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(' ');
 }
 
-/** Deutsch + Arabisch nebeneinander: „Name · الاسم“. */
+/** Arabisch groß, Deutsch klein daneben: „الاسم Name“. */
 export function Bi({ de, ar, className }: { de: string; ar: string; className?: string }): JSX.Element {
   return (
     <span className={cx('inline-flex items-baseline gap-1.5', className)}>
-      <span>{de}</span>
-      <span className="ar text-[0.95em] opacity-70">{ar}</span>
+      <span className="ar">{ar}</span>
+      <span lang="de" dir="ltr" className="ltr text-[0.78em] font-normal opacity-60">{de}</span>
     </span>
   );
 }
@@ -18,11 +18,11 @@ type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'warn';
 type Size = 'sm' | 'md' | 'icon';
 
 const VARIANTS: Record<Variant, string> = {
-  primary: 'bg-accent-strong text-black hover:bg-accent font-semibold',
+  primary: 'bg-accent-strong text-on-accent hover:brightness-110 font-semibold',
   secondary: 'bg-raised text-fg border border-line hover:bg-hover hover:border-line-strong',
   ghost: 'text-muted hover:text-fg hover:bg-hover',
   danger: 'bg-danger/90 text-white hover:bg-danger font-semibold',
-  warn: 'bg-warn text-black hover:brightness-110 font-semibold',
+  warn: 'bg-warn text-on-accent hover:brightness-110 font-semibold',
 };
 
 const SIZES: Record<Size, string> = {
@@ -56,7 +56,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
 });
 
 export const inputClass =
-  'h-10 w-full rounded-md border border-line bg-bg px-3 text-sm text-fg placeholder:text-faint transition-colors hover:border-line-strong focus:border-accent focus:outline-none';
+  'h-10 w-full rounded-md border border-line bg-surface px-3 text-sm text-fg placeholder:text-faint transition-colors hover:border-line-strong focus:border-accent focus:outline-none';
 
 export const TextInput = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function TextInput(
   { className, ...rest },
@@ -151,6 +151,18 @@ export const IconRestore = () => (
 );
 export const IconSearch = () => (
   <svg className={svg} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></svg>
+);
+export const IconSun = () => (
+  <svg className={svg} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+);
+export const IconMoon = () => (
+  <svg className={svg} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" /></svg>
+);
+export const IconAlert = () => (
+  <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" /><path d="M12 9v4M12 17h.01" /></svg>
+);
+export const IconInfo = () => (
+  <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
 );
 export const IconMenu = () => (
   <svg className={svg} viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="12" cy="19" r="1.6" /></svg>

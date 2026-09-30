@@ -1,34 +1,62 @@
 @import 'tailwindcss';
 
 @theme {
-  /* Ruhiges Dunkel – Flächen in feinen Stufen, Linien statt Schatten. */
-  --color-bg: #0b0d11;
-  --color-surface: #11141a;
-  --color-raised: #171b22;
-  --color-hover: #1d222b;
-  --color-line: #232935;
-  --color-line-strong: #313846;
-  --color-fg: #e8eaef;
-  --color-muted: #9aa3b2;
-  --color-faint: #677083;
+  /* Tag (Standard) – hell, ruhig, wie Easy Consulting. Nacht überschreibt dieselben Variablen. */
+  --color-bg: #f4f6f9;
+  --color-surface: #ffffff;
+  --color-raised: #f3f5f8;
+  --color-hover: #edf0f5;
+  --color-line: #e2e7ef;
+  --color-line-strong: #cbd3df;
+  --color-fg: #0f172a;
+  --color-muted: #4b5870;
+  --color-faint: #7d889c;
 
   /* Markenakzent von Amer Consulting – nur für Fokus, Primäraktion und Nummern. */
-  --color-accent: #f28a3c;
+  --color-accent: #d9590b;
   --color-accent-strong: #f97316;
-  --color-accent-soft: rgb(242 138 60 / 0.12);
+  --color-accent-soft: rgb(249 115 22 / 0.1);
+  --color-on-accent: #ffffff;
 
-  --color-ok: #46b98a;
-  --color-ok-soft: rgb(70 185 138 / 0.12);
-  --color-warn: #e0ae4a;
-  --color-warn-soft: rgb(224 174 74 / 0.12);
-  --color-danger: #e5575b;
-  --color-danger-soft: rgb(229 87 91 / 0.12);
-  --color-info: #6ea8e8;
-  --color-info-soft: rgb(110 168 232 / 0.1);
+  --color-ok: #15885a;
+  --color-ok-soft: rgb(21 136 90 / 0.09);
+  --color-warn: #b7791f;
+  --color-warn-soft: rgb(234 170 60 / 0.14);
+  --color-danger: #d23b3f;
+  --color-danger-soft: rgb(210 59 63 / 0.08);
+  --color-info: #2f6fca;
+  --color-info-soft: rgb(47 111 202 / 0.08);
 
-  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-sans: 'Inter Variable', 'Noto Sans Arabic', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-arabic: 'Noto Sans Arabic', 'Segoe UI', Tahoma, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace;
+}
+
+/* Nacht – tiefes Navy mit Orange. */
+:root[data-theme='dark'] {
+  --color-bg: #0a1120;
+  --color-surface: #0f192e;
+  --color-raised: #14213b;
+  --color-hover: #1a2a4a;
+  --color-line: #1e2c4b;
+  --color-line-strong: #2c3f66;
+  --color-fg: #e9eef8;
+  --color-muted: #a3b0cb;
+  --color-faint: #6f7d9c;
+
+  --color-accent: #ff9a4d;
+  --color-accent-strong: #f97316;
+  --color-accent-soft: rgb(249 115 22 / 0.14);
+  --color-on-accent: #10182b;
+
+  --color-ok: #4cc491;
+  --color-ok-soft: rgb(76 196 145 / 0.13);
+  --color-warn: #f0b95a;
+  --color-warn-soft: rgb(240 185 90 / 0.13);
+  --color-danger: #ff6b6f;
+  --color-danger-soft: rgb(255 107 111 / 0.12);
+  --color-info: #7fb2ff;
+  --color-info-soft: rgb(127 178 255 / 0.11);
 }
 
 html,
@@ -38,6 +66,10 @@ body,
 }
 
 html {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
   color-scheme: dark;
 }
 
@@ -66,14 +98,20 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Nummern, Telefon, Datum bleiben links-nach-rechts – auch mitten im arabischen Layout. */
+.ltr {
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
   border-radius: 4px;
 }
 
-input[type='datetime-local']::-webkit-calendar-picker-indicator {
-  filter: invert(0.7);
+:root[data-theme='dark'] input::-webkit-calendar-picker-indicator {
+  filter: invert(0.75);
 }
 
 dialog::backdrop {

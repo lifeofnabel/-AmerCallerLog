@@ -29,12 +29,13 @@ export function StatusSwitch({
         <span
           className={cx(
             'absolute top-[2px] h-3 w-3 rounded-full transition-all',
-            completed ? 'left-[15px] bg-ok' : 'left-[2px] bg-faint group-hover:bg-muted',
+            completed ? 'start-[15px] bg-ok' : 'start-[2px] bg-faint group-hover:bg-muted',
           )}
         />
       </span>
-      <span className={cx('w-14 text-left', completed ? 'text-ok' : 'text-muted')}>
-        {completed ? 'Erledigt' : 'Offen'}
+      <span className={cx('w-20 text-start', completed ? 'text-ok' : 'text-muted')}>
+        <span className="ar">{completed ? 'مكتمل' : 'مفتوح'}</span>{' '}
+        <span className="text-[11px] opacity-60">{completed ? 'Erledigt' : 'Offen'}</span>
       </span>
     </button>
   );

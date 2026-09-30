@@ -50,7 +50,7 @@ export function FilterBar({
   return (
     <div className="no-print flex flex-wrap items-center gap-2">
       <div className="relative w-full sm:w-72">
-        <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-faint">
+        <span className="pointer-events-none absolute top-1/2 start-2.5 -translate-y-1/2 text-faint">
           <IconSearch />
         </span>
         <TextInput
@@ -58,8 +58,8 @@ export function FilterBar({
           dir="auto"
           value={filters.search}
           onChange={(e) => set('search', e.target.value)}
-          placeholder="Suchen · بحث  (Name, Telefon, Details, #)"
-          className="h-8 pl-8 text-[13px]"
+          placeholder="بحث · Suchen (Name, Telefon, Details, #)"
+          className="h-8 ps-8 text-[13px]"
           aria-label="Suchen"
         />
       </div>
@@ -77,7 +77,7 @@ export function FilterBar({
         value={filters.category}
         onChange={(v) => set('category', v)}
         options={[
-          { value: 'all', label: 'Alle' },
+          { value: 'all', label: <Bi ar="الكل" de="Alle" /> },
           ...CATEGORIES.map((c) => ({ value: c, label: <span className="ar">{CATEGORY_LABELS[c].ar}</span> })),
         ]}
       />
@@ -87,10 +87,10 @@ export function FilterBar({
         onChange={(e) => set('status', e.target.value as Filters['status'])}
         className="h-8 rounded-md border border-line bg-bg px-2 text-[13px] text-fg hover:border-line-strong focus:border-accent focus:outline-none"
       >
-        <option value="active">Status: Alle</option>
-        <option value="open">Offen · مفتوح</option>
-        <option value="completed">Erledigt · مكتمل</option>
-        <option value="cancelled">Storniert · ملغى</option>
+        <option value="active">الحالة: الكل · Alle</option>
+        <option value="open">مفتوح · Offen</option>
+        <option value="completed">مكتمل · Erledigt</option>
+        <option value="cancelled">ملغى · Storniert</option>
       </select>
       <button
         type="button"
@@ -98,7 +98,7 @@ export function FilterBar({
         className="h-8 rounded-md px-2.5 text-[13px] text-muted hover:bg-hover hover:text-fg"
         title="Sortierung umschalten"
       >
-        {filters.sort === 'desc' ? 'Neueste zuerst ↓' : 'Älteste zuerst ↑'}
+        {filters.sort === 'desc' ? <Bi ar="الأحدث أولاً ↓" de="Neueste" /> : <Bi ar="الأقدم أولاً ↑" de="Älteste" />}
       </button>
     </div>
   );

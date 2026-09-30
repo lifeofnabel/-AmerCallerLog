@@ -10,17 +10,24 @@ export function latinDigits(value: string): string {
 }
 
 /**
- * Vergleichsschlüssel für Namen: Groß/klein, Leerzeichen, arabische Diakritika und
- * häufige Schreibvarianten (أ/إ/آ → ا, ة → ه, ى → ي) spielen keine Rolle.
+ * Vergleichsschlüssel für Namen: Groß/klein, Leerzeichen, Satzzeichen, unsichtbare Richtungszeichen,
+ * arabische Diakritika und häufige Schreibvarianten spielen keine Rolle:
+ * أ/إ/آ/ٱ → ا · ة → ه · ى/ی/ئ → ي · ؤ → و · ک → ك · ـ (Tatweel) weg.
  */
 export function nameKey(value: string): string {
   return latinDigits(value)
     .normalize('NFKC')
     .toLowerCase()
-    .replace(/[ً-ٰٟـ]/g, '')
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\u061C\uFEFF]/g, '')
+    .replace(/[\u064B-\u065F\u0670\u0640]/g, '')
     .replace(/[أإآٱ]/g, 'ا')
     .replace(/ة/g, 'ه')
-    .replace(/ى/g, 'ي')
+    .replace(/[ىیئ]/g, 'ي')
+    .replace(/ؤ/g, 'و')
+    .replace(/ک/g, 'ك')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[.,;:'"`´()\-_/]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 }

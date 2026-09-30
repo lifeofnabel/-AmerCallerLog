@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 
 import { CategoryPicker } from './CategoryPicker';
+import { DuplicateNotice } from './DuplicateNotice';
 import { useToast } from './Toast';
 import { Bi, Button, FieldLabel, TextInput, cx, inputClass } from './ui';
 import { usePhoneMatches } from '@/hooks/usePhoneMatches';
+import { useRules } from '@/hooks/useRules';
 import { useAuth } from '@/lib/auth';
 import { createApplication, isTimeout, validateInput } from '@/services/applications';
-import { evaluateDuplicates } from '@/services/duplicates';
-import { CATEGORY_LABELS, STATUS_LABELS, type Category } from '@/types/application';
-import { formatDate, fromLocalInput } from '@/utils/dates';
+import { evaluateDuplicates, NO_DUPLICATE } from '@/services/duplicates';
+import type { Application, Category } from '@/types/application';
+import { dayKey, formatTime } from '@/utils/dates';
 import { typingPhone } from '@/utils/phone';
 
 const KEEP_KEY = 'callerlog:keep-category';
@@ -32,13 +34,52 @@ function writeKeep(keep: boolean, category: Category | null): void {
   }
 }
 
+/** Datum/Uhrzeit: läuft mit der Uhr mit, bis jemand es von Hand ändert. */
+function useNowFields() {
+  const [touched, setTouched] = useState(false);
+  const [date, setDate] = useState(() => dayKey(new Date()));
+  const [time, setTime] = useState(() => formatTime(new Date()));
+  useEffect(() => {
+    if (touched) return;
+    const tick = () => {
+      const now = new Date();
+      setDate(dayKey(now));
+      setTime(formatTime(now));
+    };
+    tick();
+    const timer = window.setInterval(tick, 15_000);
+    return () => window.clearInterval(timer);
+  }, [touched]);
+  return {
+    date,
+    time,
+    touched,
+    setDate: (v: string) => {
+      setTouched(true);
+      setDate(v);
+    },
+    setTime: (v: string) => {
+      setTouched(true);
+      setTime(v);
+    },
+    /** null = „jetzt“ beim Speichern */
+    value(): Date | null {
+      if (!touched) return null;
+      const d = new Date(`${date}T${time || '00:00'}`);
+      return Number.isNaN(d.getTime()) ? null : d;
+    },
+    reset: () => setTouched(false),
+  };
+}
+
 /**
- * Erfassung: Kategorie → Name → Telefon → Details (optional) → Speichern.
- * Enter speichert aus jedem Feld. Nach dem Speichern leert sich das Formular, die Kategorie bleibt
- * auf Wunsch stehen und der Cursor springt zurück an den Anfang.
+ * Erfassung (rechts nach links): Kategorie → Name → Telefon → Details → Datum → Uhrzeit → Speichern.
+ * Tab springt von Feld zu Feld, Enter speichert aus jedem Feld. Nach dem Speichern leert sich das
+ * Formular, die Kategorie bleibt auf Wunsch stehen und der Cursor springt zurück an den Anfang.
  */
-export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => void }): JSX.Element {
+export function EntryForm({ onSaved }: { onSaved?: (app: Application) => void }): JSX.Element {
   const { user } = useAuth();
+  const rules = useRules();
   const toast = useToast();
   const initial = useMemo(readKeep, []);
   const [category, setCategory] = useState<Category | null>(initial.category);
@@ -46,8 +87,7 @@ export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => v
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [details, setDetails] = useState('');
-  const [when, setWhen] = useState('');
-  const [showWhen, setShowWhen] = useState(false);
+  const when = useNowFields();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmExact, setConfirmExact] = useState(false);
@@ -62,32 +102,29 @@ export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => v
 
   const { matches, resolve: resolveMatches } = usePhoneMatches(phone, refresh);
   const duplicate = useMemo(
-    () => (category === null ? null : evaluateDuplicates(matches, name, category)),
-    [matches, name, category],
+    () => (category === null ? NO_DUPLICATE : evaluateDuplicates(matches, name, category, rules)),
+    [matches, name, category, rules],
   );
 
-  // Erste Eingabe: dorthin, wo es losgeht.
   useEffect(() => {
     focusStart(initial.category);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Jede Änderung an den Kernfeldern verwirft eine bereits gezeigte Duplikat-Bestätigung.
+  // Jede Änderung an den Kernfeldern verwirft eine bereits gezeigte Bestätigung.
   useEffect(() => setConfirmExact(false), [name, phone, category]);
   useEffect(() => {
     if (confirmExact) confirmRef.current?.focus();
   }, [confirmExact]);
 
   function focusStart(cat: Category | null) {
-    if (cat === null) {
-      const checked = categoryRef.current?.querySelector<HTMLButtonElement>('[tabindex="0"]');
-      checked?.focus();
-    } else nameRef.current?.focus();
+    if (cat === null) categoryRef.current?.querySelector<HTMLButtonElement>('[tabindex="0"]')?.focus();
+    else nameRef.current?.focus();
   }
 
   async function save(force: boolean) {
     if (submitting.current || user === null) return;
-    const input = { name, phone, category: category ?? ('' as Category), details, receivedAt: fromLocalInput(when) };
+    const input = { name, phone, category: category ?? ('' as Category), details, receivedAt: when.value() };
     const problem = validateInput(input);
     if (problem !== null) {
       setError(problem);
@@ -96,14 +133,16 @@ export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => v
       else phoneRef.current?.focus();
       return;
     }
-    if (!force) {
-      submitting.current = true;
-      const current = evaluateDuplicates(await resolveMatches(), name, category!);
-      submitting.current = false;
-      if (current.kind === 'exact') {
-        setConfirmExact(true);
-        return;
-      }
+    submitting.current = true;
+    const current = evaluateDuplicates(await resolveMatches(), name, category!, rules);
+    submitting.current = false;
+    if (current.block === 'hard') {
+      setError(null);
+      return;
+    }
+    if (current.block === 'soft' && !force) {
+      setConfirmExact(true);
+      return;
     }
     if (!navigator.onLine) {
       setError('Keine Internetverbindung – der Antrag wurde NICHT gespeichert. Eingaben bleiben stehen.');
@@ -114,20 +153,19 @@ export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => v
     setSaving(true);
     setError(null);
     try {
-      const seq = await createApplication({ ...input, category: category! }, user);
+      const app = await createApplication({ ...input, category: category! }, user);
       toast(
         <span>
-          <b className="num text-accent">#{seq}</b> gespeichert · <span className="ar">تم الحفظ</span>
+          <b className="num ltr text-accent">#{app.sequenceNumber}</b> <span className="ar">تم الحفظ</span> · gespeichert
         </span>,
       );
-      setLastSaved(seq);
-      onSaved?.(seq);
+      setLastSaved(app.sequenceNumber);
+      onSaved?.(app);
       const nextCategory = keepCategory ? category : null;
       setName('');
       setPhone('');
       setDetails('');
-      setWhen('');
-      setShowWhen(false);
+      when.reset();
       setConfirmExact(false);
       setCategory(nextCategory);
       setRefresh((n) => n + 1);
@@ -145,49 +183,36 @@ export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => v
     }
   }
 
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    void save(confirmExact);
-  };
+  const blocked = duplicate.block === 'hard';
 
   return (
     <form
-      onSubmit={onSubmit}
+      onSubmit={(e: FormEvent) => {
+        e.preventDefault();
+        void save(confirmExact);
+      }}
       onKeyDown={(e) => {
-        if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-          e.preventDefault();
-          void save(confirmExact);
+        if (e.key === 'Escape' && confirmExact) {
+          setConfirmExact(false);
+          nameRef.current?.focus();
         }
       }}
-      className="no-print rounded-lg border border-line bg-surface"
-      aria-label="Neuer Antrag"
+      className="no-print rounded-xl border border-line bg-surface shadow-sm"
+      aria-label="طلب جديد"
     >
       <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-        <h2 className="text-[13px] font-semibold tracking-wide text-muted uppercase">
+        <h2 className="text-[15px] font-semibold">
           <Bi de="Neuer Antrag" ar="طلب جديد" />
         </h2>
-        <div className="flex items-center gap-4 text-xs text-faint">
-          {lastSaved !== null && (
-            <span>
-              Zuletzt: <b className="num text-fg">#{lastSaved}</b>
-            </span>
-          )}
-          <label className="flex cursor-pointer items-center gap-1.5 select-none">
-            <input
-              type="checkbox"
-              checked={keepCategory}
-              onChange={(e) => {
-                setKeepCategory(e.target.checked);
-                writeKeep(e.target.checked, category);
-              }}
-              className="accent-[var(--color-accent-strong)]"
-            />
-            Kategorie behalten
-          </label>
-        </div>
+        {lastSaved !== null && (
+          <span className="text-xs text-faint">
+            <span className="ar">آخر طلب</span> · <span className="ltr">Zuletzt <b className="num text-fg">#{lastSaved}</b></span>
+          </span>
+        )}
       </div>
 
-      <div className="grid gap-3 p-4 md:grid-cols-2 lg:grid-cols-[auto_minmax(0,1.2fr)_minmax(0,1fr)] xl:grid-cols-[auto_minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.4fr)_auto]">
+      <div className="space-y-3 p-4">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[auto_minmax(0,1.3fr)_minmax(0,1fr)]">
         <div>
           <FieldLabel de="Kategorie" ar="الفئة" hint="1 · 2 · 3" />
           <CategoryPicker
@@ -210,7 +235,8 @@ export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => v
             autoComplete="off"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Vor- und Nachname · الاسم الكامل"
+            placeholder="الاسم الكامل"
+            className="text-[15px]"
           />
         </div>
 
@@ -221,111 +247,91 @@ export function EntryForm({ onSaved }: { onSaved?: (sequenceNumber: number) => v
             id="entry-phone"
             type="tel"
             inputMode="tel"
+            dir="ltr"
             autoComplete="off"
             value={phone}
             onChange={(e) => setPhone(typingPhone(e.target.value))}
             placeholder="0176 …"
-            className="num"
+            className="num text-end text-[15px]"
           />
         </div>
 
-        <div className="md:col-span-2 lg:col-span-2 xl:col-span-1">
-          <FieldLabel
-            htmlFor="entry-details"
-            de="Details"
-            ar="تفاصيل الطلب"
+      </div>
+      <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] lg:grid-cols-[minmax(0,1fr)_auto_13rem]">
+        <div>
+          <FieldLabel htmlFor="entry-details" de="Details (optional)" ar="تفاصيل الطلب" />
+          <TextInput
+            id="entry-details"
+            dir="auto"
+            autoComplete="off"
+            value={details}
+            onChange={(e) => setDetails(e.target.value)}
+            placeholder="اختياري"
           />
-          <div className="flex gap-2">
-            <TextInput
-              id="entry-details"
-              dir="auto"
-              autoComplete="off"
-              value={details}
-              onChange={(e) => setDetails(e.target.value)}
-              placeholder="optional · اختياري"
+        </div>
+
+        <div>
+          <FieldLabel de={when.touched ? 'Datum / Uhrzeit' : 'Datum / Uhrzeit · jetzt'} ar="التاريخ والوقت" />
+          <div className="flex gap-2" dir="ltr">
+            <input
+              type="date"
+              aria-label="التاريخ Datum"
+              value={when.date}
+              onChange={(e) => when.setDate(e.target.value)}
+              className={cx(inputClass, 'num w-[9.5rem] px-2', !when.touched && 'text-muted')}
             />
-            {showWhen ? (
-              <input
-                type="datetime-local"
-                aria-label="Datum und Uhrzeit"
-                value={when}
-                onChange={(e) => setWhen(e.target.value)}
-                className={cx(inputClass, 'num w-[12.5rem] shrink-0 px-2')}
-              />
-            ) : (
-              <Button
-                variant="ghost"
-                size="md"
-                className="px-2.5 text-xs"
-                onClick={() => setShowWhen(true)}
-                title="Anderes Datum / Uhrzeit (Standard: jetzt)"
-              >
-                Datum
-              </Button>
-            )}
+            <input
+              type="time"
+              aria-label="الوقت Uhrzeit"
+              value={when.time}
+              onChange={(e) => when.setTime(e.target.value)}
+              className={cx(inputClass, 'num w-[6.5rem] shrink-0 px-2', !when.touched && 'text-muted')}
+            />
           </div>
         </div>
 
-        <div className="flex items-end md:col-span-2 lg:col-span-1">
-          <Button type="submit" variant="primary" className="w-full xl:w-auto xl:min-w-[7.5rem]" disabled={saving}>
-            {saving ? 'Speichert …' : <Bi de="Speichern" ar="حفظ" />}
+        <div className="flex flex-col justify-end gap-2 md:col-span-2 lg:col-span-1">
+          <Button type="submit" variant="primary" className="h-11 w-full justify-center text-[15px]" disabled={saving || blocked}>
+            {saving ? '…' : <Bi de="Speichern · Enter" ar="حفظ" />}
           </Button>
         </div>
       </div>
+      </div>
 
-      {(error !== null || (duplicate !== null && duplicate.kind !== 'none')) && (
+      {(error !== null || duplicate.exact.length + duplicate.sameCategory.length + duplicate.otherCategory.length > 0) && (
         <div className="space-y-2 px-4 pb-4" aria-live="polite">
           {error !== null && (
-            <p role="alert" className="rounded-md border border-danger/40 bg-danger-soft px-3 py-2 text-[13px] text-fg">
+            <p role="alert" className="rounded-lg border border-danger/40 bg-danger-soft px-4 py-2.5 text-[14px] text-fg">
               {error}
             </p>
           )}
-          {duplicate?.kind === 'exact' && (
-            <div className="flex flex-wrap items-center gap-3 rounded-md border border-warn/40 bg-warn-soft px-3 py-2 text-[13px]">
-              <span className="font-semibold text-warn">
-                <Bi de="Doppelt?" ar="طلب مكرر؟" />
-              </span>
-              <span className="text-fg">
-                Gleicher Name, gleiche Nummer, gleiche Kategorie existiert schon:{' '}
-                {duplicate.exact.map((a) => (
-                  <b key={a.id} className="num mr-1.5">
-                    #{a.sequenceNumber} ({formatDate(a.receivedAt)}, {STATUS_LABELS[a.status].de})
-                  </b>
-                ))}
-              </span>
-              {confirmExact ? (
-                <Button ref={confirmRef} variant="warn" size="sm" onClick={() => void save(true)} disabled={saving}>
-                  Trotzdem speichern (Enter)
-                </Button>
-              ) : (
-                <span className="text-faint">Speichern fragt noch einmal nach.</span>
-              )}
-            </div>
-          )}
-          {duplicate?.kind === 'service' && (
-            <p className="rounded-md border border-info/30 bg-info-soft px-3 py-2 text-[13px]">
-              <span className="font-semibold text-info">Bekannter Kunde · عميل سابق</span> – schon da mit{' '}
-              {[...new Set(duplicate.sameName.map((a) => a.category))].map((c) => (
-                <span key={c} className="ar mx-1 font-semibold">
-                  {CATEGORY_LABELS[c].ar}
-                </span>
-              ))}
-              . Neue Leistung wird normal gespeichert.
-            </p>
-          )}
-          {duplicate !== null && duplicate.kind !== 'exact' && duplicate.otherNames.length > 0 && (
-            <p className="rounded-md border border-line-strong bg-raised px-3 py-2 text-[13px] text-muted">
-              <span className="font-semibold text-fg">Nummer bekannt · الرقم مسجل</span> – gehört auch zu:{' '}
-              {duplicate.otherNames.slice(0, 5).map((n) => (
-                <span key={n} dir="auto" className="auto-dir mr-2 font-medium text-fg">
-                  {n}
-                </span>
-              ))}
-              (evtl. Familie)
-            </p>
-          )}
+          <DuplicateNotice
+            ref={confirmRef}
+            result={duplicate}
+            confirmPending={confirmExact}
+            onOverride={() => void save(true)}
+            saving={saving}
+          />
         </div>
       )}
+
+      <div className="flex items-center justify-between border-t border-line px-4 py-2 text-xs text-faint">
+        <span>
+          <span className="ar">Tab للتنقل · Enter للحفظ</span> · <span className="ltr">Tab = weiter, Enter = speichern</span>
+        </span>
+        <label className="flex cursor-pointer items-center gap-1.5 select-none">
+          <input
+            type="checkbox"
+            checked={keepCategory}
+            onChange={(e) => {
+              setKeepCategory(e.target.checked);
+              writeKeep(e.target.checked, category);
+            }}
+            className="accent-[var(--color-accent-strong)]"
+          />
+          <span className="ar">إبقاء الفئة</span> · <span className="ltr">Kategorie behalten</span>
+        </label>
+      </div>
     </form>
   );
 }

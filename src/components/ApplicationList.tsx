@@ -58,7 +58,7 @@ function StatusCell({ app, actions }: { app: Application; actions: RowActions })
     return (
       <span className="inline-flex items-center gap-1.5 px-1.5 text-[13px] text-danger">
         <span className="h-1.5 w-1.5 rounded-full bg-danger" />
-        {STATUS_LABELS.cancelled.de}
+        <span className="ar">{STATUS_LABELS.cancelled.ar}</span>
       </span>
     );
   }
@@ -71,7 +71,7 @@ function StatusCell({ app, actions }: { app: Application; actions: RowActions })
           disabled={actions.onToggle === undefined}
         />
       </span>
-      <span className="print-only">{STATUS_LABELS[app.status].de}</span>
+      <span className="print-only">{STATUS_LABELS[app.status].ar} · {STATUS_LABELS[app.status].de}</span>
     </>
   );
 }
@@ -107,7 +107,7 @@ function ActionButtons({ app, actions }: { app: Application; actions: RowActions
           {actions.onRestore && (
             <button type="button" className={btn} onClick={() => actions.onRestore?.(app)} title="Wiederherstellen · استعادة">
               <IconRestore />
-              <span className="hidden sm:inline">Wiederherstellen</span>
+              <span className="ar hidden sm:inline">استعادة</span>
             </button>
           )}
           {actions.onDelete && (
@@ -118,7 +118,7 @@ function ActionButtons({ app, actions }: { app: Application; actions: RowActions
               title="Endgültig löschen · حذف نهائي"
             >
               <IconTrash />
-              <span className="hidden sm:inline">Löschen</span>
+              <span className="ar hidden sm:inline">حذف</span>
             </button>
           )}
         </>
@@ -146,10 +146,10 @@ export function ApplicationList({
   }
   return (
     <>
-      <table className="print-table hidden w-full border-collapse text-left md:table">
+      <table className="print-table hidden w-full border-collapse text-start md:table">
         <thead>
           <tr className="border-b border-line text-[11px] font-semibold tracking-wide text-faint uppercase">
-            <th className="w-[4.5rem] px-4 py-2 font-semibold">#</th>
+            <th className="w-[4.5rem] px-4 py-2 text-start font-semibold">#</th>
             <th className="px-3 py-2 font-semibold"><Bi de="Name" ar="الاسم" /></th>
             <th className="px-3 py-2 font-semibold"><Bi de="Telefon" ar="الهاتف" /></th>
             <th className="px-3 py-2 font-semibold"><Bi de="Kategorie" ar="الفئة" /></th>
@@ -171,14 +171,14 @@ export function ApplicationList({
               )}
             >
               <td className="num px-4 py-2 font-semibold text-accent">
-                #{app.sequenceNumber}
-                {app.pending && <span className="ml-1 text-[10px] font-normal text-warn" title="Noch nicht synchronisiert">●</span>}
+                <span className="ltr">#{app.sequenceNumber}</span>
+                {app.pending && <span className="ms-1 text-[10px] font-normal text-warn" title="Noch nicht synchronisiert">●</span>}
               </td>
               <td dir="auto" className="auto-dir max-w-[16rem] truncate px-3 py-2 font-medium text-fg">{app.name}</td>
-              <td className="num px-3 py-2 whitespace-nowrap">{app.phone}</td>
+              <td className="num px-3 py-2 whitespace-nowrap"><span className="ltr">{app.phone}</span></td>
               <td className="px-3 py-2"><CategoryTag app={app} /></td>
               <td dir="auto" className="auto-dir max-w-[22rem] truncate px-3 py-2 text-muted" title={app.details}>{app.details}</td>
-              <td className="num px-3 py-2 whitespace-nowrap text-muted">{when(app)}</td>
+              <td className="num px-3 py-2 whitespace-nowrap text-muted"><span className="ltr">{when(app)}</span></td>
               <td className="px-3 py-1"><StatusCell app={app} actions={actions} /></td>
               <td className="no-print px-3 py-1"><ActionButtons app={app} actions={actions} /></td>
             </tr>
@@ -190,13 +190,13 @@ export function ApplicationList({
         {apps.map((app) => (
           <li key={app.id} data-seq={app.sequenceNumber} className={cx('px-3 py-2.5', highlight === app.sequenceNumber && 'bg-accent-soft')}>
             <div className="flex items-baseline gap-2">
-              <span className="num font-semibold text-accent">#{app.sequenceNumber}</span>
+              <span className="num ltr font-semibold text-accent">#{app.sequenceNumber}</span>
               <span dir="auto" className="auto-dir min-w-0 flex-1 truncate font-medium">{app.name}</span>
               <CategoryTag app={app} />
             </div>
             <div className="mt-0.5 flex items-center gap-3 text-[13px] text-muted">
-              <span className="num">{app.phone}</span>
-              <span className="num text-faint">{when(app)}</span>
+              <span className="num ltr">{app.phone}</span>
+              <span className="num ltr text-faint">{when(app)}</span>
             </div>
             {app.details !== '' && (
               <p dir="auto" className="auto-dir mt-0.5 line-clamp-2 text-[13px] text-muted">{app.details}</p>

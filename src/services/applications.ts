@@ -127,7 +127,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * wiederholt Firestore die zweite Transaktion mit dem neuen Zählerstand. Nummern werden nie doppelt
  * vergeben und nie wiederverwendet – auch nicht nach dem endgültigen Löschen.
  */
-export async function createApplication(input: ApplicationInput, by: Person): Promise<number> {
+export async function createApplication(input: ApplicationInput, by: Person): Promise<Application> {
   const { db } = getFirebase();
   const fields = inputFields(input);
   const attempt = () =>
@@ -147,7 +147,28 @@ export async function createApplication(input: ApplicationInput, by: Person): Pr
       });
       return next;
     });
-  return withTimeout(retryOnContention(attempt), 20000);
+  const seq = await withTimeout(retryOnContention(attempt), 20000);
+  // Der gespeicherte Antrag, wie ihn die Liste zeigt – für die sofortige Anzeige, bevor der Live-Abgleich ihn liefert.
+  const now = new Date();
+  const receivedAt = fields.receivedAt.toDate();
+  return {
+    id: applicationId(seq),
+    sequenceNumber: seq,
+    name: fields.name,
+    phone: fields.phone,
+    category: fields.category,
+    details: fields.details,
+    status: 'open',
+    previousStatus: null,
+    receivedAt,
+    day: fields.day,
+    createdAt: now,
+    createdBy: by,
+    updatedAt: now,
+    updatedBy: by,
+    cancelledAt: null,
+    pending: false,
+  };
 }
 
 /**

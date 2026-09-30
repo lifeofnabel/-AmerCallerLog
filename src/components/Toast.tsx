@@ -23,7 +23,7 @@ export function ToastProvider({ children }: { children: ReactNode }): JSX.Elemen
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="no-print pointer-events-none fixed right-4 bottom-4 z-50 flex max-w-sm flex-col gap-2" aria-live="polite">
+      <div className="no-print pointer-events-none fixed end-4 bottom-4 z-50 flex max-w-sm flex-col gap-2" aria-live="polite">
         {toasts.map((t) => (
           <div
             key={t.id}
@@ -35,7 +35,7 @@ export function ToastProvider({ children }: { children: ReactNode }): JSX.Elemen
               t.tone === 'info' && 'border-line-strong bg-surface text-fg',
             )}
           >
-            <span className={cx('mr-2 inline-block h-1.5 w-1.5 rounded-full align-middle', t.tone === 'ok' ? 'bg-ok' : t.tone === 'error' ? 'bg-danger' : 'bg-info')} />
+            <span className={cx('me-2 inline-block h-1.5 w-1.5 rounded-full align-middle', t.tone === 'ok' ? 'bg-ok' : t.tone === 'error' ? 'bg-danger' : 'bg-info')} />
             {t.text}
           </div>
         ))}

@@ -77,7 +77,7 @@ await anna.keyboard.type('Ahmed Ali');
 await anna.keyboard.press('Tab');
 await anna.keyboard.type('0176 1234567');
 await anna.keyboard.press('Enter');
-await anna.waitForSelector('text=#1 gespeichert');
+await anna.waitForSelector('[role=status]:has(b:text-is("#1"))');
 ok(true, 'Enter speichert → #1');
 ok(await anna.inputValue('#entry-name') === '' && await anna.inputValue('#entry-phone') === '', 'Formular geleert');
 ok(await anna.evaluate(() => document.activeElement?.id) === 'entry-name', 'Fokus zurück auf Name (Kategorie bleibt)');
@@ -85,46 +85,51 @@ ok(await anna.getAttribute('[role=radio][aria-checked=true]', 'aria-checked') ==
 await rowByNum(anna, 1).waitFor();
 ok(true, '#1 steht in „Heutige Anträge“');
 
-// Fall C: gleiche Nummer, anderer Name (arabisch)
+// Gleiche Nummer + gleiche Kategorie, anderer Name (arabisch) → Hinweis mit #1
 await anna.fill('#entry-name', 'سارة علي');
 await anna.fill('#entry-phone', '+49 176 1234567');
-await anna.waitForSelector('text=Nummer bekannt');
-ok(true, 'Fall C: gleiche Nummer (+49-Schreibweise), anderer Name → Hinweis Familie');
+await anna.waitForSelector('text=Nummer schon in dieser Kategorie');
+ok(await anna.locator('[role=status]:has-text("Nummer schon in dieser Kategorie") >> text=#1').count() > 0, 'Gleiche Nummer+Kategorie, anderer Name → Hinweis mit #1 und Name');
 await anna.keyboard.press('Enter');
-await anna.waitForSelector('text=#2 gespeichert');
-ok(true, 'Fall C speichert sofort → #2');
+await anna.waitForSelector('[role=status]:has(b:text-is("#2"))');
+ok(true, 'Hinweis blockiert nicht → #2');
 
-// Fall A: exaktes Duplikat
+// Alles gleich (andere Schreibweise des Namens) → gesperrt, Ausnahme möglich
 await anna.fill('#entry-name', 'ahmed  ali');
 await anna.fill('#entry-phone', '01761234567');
-await anna.waitForSelector('text=Doppelt?');
-ok(true, 'Fall A: gleicher Name (andere Schreibweise), Nummer, Kategorie → Warnung');
+await anna.waitForSelector('text=Schon erfasst als #1');
+ok(true, 'Alles gleich → „Schon erfasst als #1“');
 await anna.press('#entry-phone', 'Enter');
-await anna.waitForSelector('text=Trotzdem speichern');
-ok(!(await anna.isVisible('text=#3 gespeichert')), 'Fall A: erstes Enter speichert NICHT');
+await anna.waitForSelector('text=Enter bestätigt');
+ok(!(await anna.locator('[role=status]:has(b:text-is("#3"))').count()), 'Alles gleich: erstes Enter speichert NICHT');
 await anna.keyboard.press('Enter');
-await anna.waitForSelector('text=#3 gespeichert');
-ok(true, 'Fall A: nach Bestätigung gespeichert → #3');
+await anna.waitForSelector('[role=status]:has(b:text-is("#3"))');
+ok(true, 'Ausnahme bestätigt → #3');
 
-// Fall B: gleiche Person, andere Kategorie
+// Gleiche Nummer, andere Kategorie → nur Hinweis
 await anna.click('[role=radio]:has-text("وكالة")');
 await anna.fill('#entry-name', 'Ahmed Ali');
 await anna.fill('#entry-phone', '0176 1234567');
-await anna.waitForSelector('text=Bekannter Kunde');
-ok(!(await anna.isVisible('text=Doppelt?')), 'Fall B: andere Kategorie → nur Hinweis, keine Warnung');
+await anna.waitForSelector('text=Schon gehabt, andere Kategorie');
+ok(!(await anna.isVisible('text=Schon erfasst als')), 'Andere Kategorie → Hinweis „schon gehabt“, keine Sperre');
 await anna.fill('#entry-details', 'Vollmacht für Bruder');
 await anna.keyboard.press('Enter');
-await anna.waitForSelector('text=#4 gespeichert');
-ok(true, 'Fall B speichert sofort → #4');
+await anna.waitForSelector('[role=status]:has(b:text-is("#4"))');
+ok(true, 'Andere Kategorie speichert sofort → #4');
 
-// Fall D
+// Neue Nummer
 await anna.click('[role=radio]:has-text("وطنية")');
 await anna.fill('#entry-name', 'Omar Hassan');
 await anna.fill('#entry-phone', '0172 9998887');
 await anna.waitForTimeout(600);
-ok(!(await anna.isVisible('text=Nummer bekannt')) && !(await anna.isVisible('text=Doppelt?')), 'Fall D: neue Nummer → kein Hinweis');
+ok(!(await anna.isVisible('text=Nummer schon')) && !(await anna.isVisible('text=Schon gehabt')) && !(await anna.isVisible('text=Schon erfasst')), 'Neue Nummer → kein Hinweis');
+const nowHHMM = new Date().toTimeString().slice(0, 5);
+const timeVal = await anna.inputValue('input[type=time]');
+ok(Math.abs(Number(timeVal.replace(':', '')) - Number(nowHHMM.replace(':', ''))) <= 1, `Uhrzeit steht auf „jetzt“ (${timeVal})`);
 await anna.keyboard.press('Enter');
-await anna.waitForSelector('text=#5 gespeichert');
+await anna.waitForSelector('[role=status]:has(b:text-is("#5"))');
+await rowByNum(anna, 5).waitFor({ timeout: 2000 });
+ok(true, '#5 sofort in der Liste, ohne Neuladen');
 
 // Pflichtfelder
 await anna.fill('#entry-name', 'Nur Name');
@@ -132,6 +137,33 @@ await anna.keyboard.press('Enter');
 await anna.waitForSelector('text=Telefonnummer fehlt');
 ok(true, 'Ohne Telefon: Fehlermeldung, nichts gespeichert');
 await anna.fill('#entry-name', '');
+
+// Einstellungen: hart sperren – gilt sofort auch auf Bilals Gerät
+console.log('Einstellungen / Tag-Nacht');
+await anna.click('[aria-label=Menü]');
+await anna.click('[role=menuitem]:has-text("Einstellungen")');
+await anna.click('dialog[open] label:has-text("Hart sperren")');
+await anna.click('dialog[open] button:has-text("Speichern")');
+await anna.waitForSelector('text=Einstellungen gespeichert');
+await bilal.click('[role=radio]:has-text("جواز")');
+await bilal.fill('#entry-name', 'Ahmed Ali');
+await bilal.fill('#entry-phone', '0176 1234567');
+await bilal.waitForSelector('text=Speichern ist gesperrt');
+ok(await bilal.locator('form button[type=submit]').isDisabled(), 'Hart sperren gilt sofort auf dem anderen Gerät, Speichern gesperrt');
+await bilal.fill('#entry-name', '');
+await bilal.fill('#entry-phone', '');
+await anna.click('[aria-label=Menü]');
+await anna.click('[role=menuitem]:has-text("Einstellungen")');
+await anna.click('dialog[open] label:has-text("Sperren, Ausnahme möglich")');
+await anna.click('dialog[open] button:has-text("Speichern")');
+await anna.waitForSelector('dialog[open]', { state: 'detached' }).catch(() => undefined);
+const before = await anna.evaluate(() => document.documentElement.dataset.theme);
+await anna.click('button[aria-label*="modus"]');
+const after = await anna.evaluate(() => document.documentElement.dataset.theme);
+ok(before !== after, `Tag/Nacht umgeschaltet (${before} → ${after})`);
+await anna.screenshot({ path: `${SP}/theme-${after}.png`, fullPage: true });
+await anna.click('button[aria-label*="modus"]');
+ok((await anna.evaluate(() => document.documentElement.dir)) === 'rtl', 'Oberfläche rechts nach links');
 
 // 3. Live auf dem zweiten Gerät
 console.log('Mehrere Geräte');
@@ -188,12 +220,12 @@ ok(!(await rowByNum(anna, 3).count()), '#3 verschwindet aus der Liste');
 await bilal.click('nav button:has-text("Papierkorb")');
 await rowByNum(bilal, 3).waitFor({ timeout: 5000 });
 ok(true, '#3 im Papierkorb (Bilal, live)');
-await rowByNum(bilal, 3).locator('button:has-text("Wiederherstellen")').click();
+await rowByNum(bilal, 3).locator('button[title^="Wiederherstellen"]').click();
 await anna.waitForSelector(`table tbody tr[data-seq="3"]`, { timeout: 5000 });
 ok(true, 'Wiederhergestellt → #3 mit gleicher Nummer wieder in der Liste');
 await rowByNum(anna, 3).locator('button[title^="Stornieren"]').click();
 await rowByNum(bilal, 3).waitFor({ timeout: 5000 });
-await rowByNum(bilal, 3).locator('button:has-text("Löschen")').click();
+await rowByNum(bilal, 3).locator('button[title^="Endgültig"]').click();
 await bilal.waitForSelector('dialog[open] >> text=endgültig löschen?');
 ok(true, 'Endgültig löschen fragt nach');
 await bilal.click('dialog[open] button:has-text("Endgültig löschen")');
@@ -202,7 +234,7 @@ ok(true, '#3 endgültig gelöscht');
 await bilal.click('nav button:has-text("Anträge")');
 await fill(anna, 'Nach Löschen', '0160 5555555');
 await anna.press('#entry-phone', 'Enter');
-await anna.waitForSelector('text=#8 gespeichert');
+await anna.waitForSelector('[role=status]:has(b:text-is("#8"))');
 ok(true, 'Nächster Antrag ist #8 – #3 wird nie wieder vergeben');
 
 // 6. Filter & Suche
@@ -227,10 +259,10 @@ await anna.selectOption('select[aria-label=Status]', 'cancelled');
 await anna.waitForTimeout(200);
 ok(await anna.locator('table tbody tr').count() === 0, 'Status-Filter Storniert (leer nach Löschen)');
 await anna.selectOption('select[aria-label=Status]', 'active');
-await anna.click('text=Neueste zuerst');
+await anna.click('text=الأحدث أولاً');
 const firstNum = await anna.locator('table tbody tr td:first-child').first().textContent();
 ok(firstNum.startsWith('#1'), `Sortierung älteste zuerst (${firstNum})`);
-await anna.click('text=Älteste zuerst');
+await anna.click('text=الأقدم أولاً');
 await anna.click('[aria-label="Filter Datum"] >> text=Alle');
 await anna.waitForTimeout(400);
 ok(await anna.locator('table tbody tr').count() === 7, 'Datum „Alle“');
@@ -262,7 +294,7 @@ ok(!(await bilal.isVisible('text=Wöchentliches Backup empfohlen')), '… auch a
 await rowByNum(anna, 5).locator('button[title^="Stornieren"]').click();
 await fill(anna, 'Nach Backup', '0160 7777777');
 await anna.press('#entry-phone', 'Enter');
-await anna.waitForSelector('text=#9 gespeichert');
+await anna.waitForSelector('[role=status]:has(b:text-is("#9"))');
 
 // 9. Restore
 await anna.click('[aria-label=Menü]');
@@ -285,13 +317,13 @@ await rowByNum(bilal, 5).waitFor({ timeout: 5000 });
 ok(!(await rowByNum(bilal, 9).count()), 'Bilal sieht den wiederhergestellten Stand live');
 await fill(anna, 'Nach Restore', '0160 8888888');
 await anna.press('#entry-phone', 'Enter');
-await anna.waitForSelector('text=#10 gespeichert');
+await anna.waitForSelector('[role=status]:has(b:text-is("#10"))');
 ok(true, 'Nach Restore: nächste Nummer #10 (Zähler nie kleiner, #9 nicht neu vergeben)');
 
 // Offline
 console.log('Offline');
 await anna.context().setOffline(true);
-await anna.waitForSelector('text=Offline – Statuswechsel');
+await anna.waitForSelector('text=Offline – Änderungen');
 ok(true, 'Offline-Hinweis erscheint');
 await anna.click('[role=radio]:has-text("جواز")');
 await anna.fill('#entry-name', 'Offline Person');
@@ -306,7 +338,7 @@ await anna.context().setOffline(false);
 await rowByNum(bilal, 4).locator('[role=switch][aria-checked=true]').waitFor({ timeout: 20000 });
 ok(true, 'Nach dem Wiederverbinden kommt der Statuswechsel bei Bilal an');
 await anna.press('#entry-phone', 'Enter');
-await anna.waitForSelector('text=#11 gespeichert', { timeout: 15000 });
+await anna.waitForSelector('[role=status]:has(b:text-is("#11"))', { timeout: 15000 });
 ok(true, 'Wieder online: derselbe Antrag speichert als #11');
 
 // 10. Druck + Responsive

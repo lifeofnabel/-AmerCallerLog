@@ -25,14 +25,14 @@ export function TrashPage({ onVisibleChange }: { onVisibleChange: (apps: Applica
       <div className="no-print flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-2.5">
         <div>
           <h2 className="text-[15px] font-semibold">
-            <Bi de="Papierkorb" ar="سلة المحذوفات" /> <span className="num ml-2 text-[13px] font-normal text-faint">{visible.length}</span>
+            <Bi de="Papierkorb" ar="سلة المحذوفات" /> <span className="num ms-2 text-[13px] font-normal text-faint">{visible.length}</span>
           </h2>
           <p className="mt-0.5 text-xs text-faint">
             Stornierte Anträge. Wiederherstellen behält die ursprüngliche Nummer. Löschen ist endgültig.
           </p>
         </div>
         <div className="no-print relative w-full sm:w-72">
-          <span className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-faint">
+          <span className="pointer-events-none absolute top-1/2 start-2.5 -translate-y-1/2 text-faint">
             <IconSearch />
           </span>
           <TextInput
@@ -41,7 +41,7 @@ export function TrashPage({ onVisibleChange }: { onVisibleChange: (apps: Applica
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Suchen · بحث"
-            className="h-8 pl-8 text-[13px]"
+            className="h-8 ps-8 text-[13px]"
           />
         </div>
       </div>

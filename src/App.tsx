@@ -1,10 +1,13 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { RestoreDialog } from '@/components/RestoreDialog';
+import { SettingsDialog } from '@/components/SettingsDialog';
 import { useToast } from '@/components/Toast';
-import { Bi, Button, IconMenu, cx } from '@/components/ui';
+import { Bi, Button, IconMenu, IconMoon, IconSun, cx } from '@/components/ui';
 import { useOnline } from '@/hooks/useApplications';
 import { useBackupReminder } from '@/hooks/useBackupReminder';
+import { RulesProvider } from '@/hooks/useRules';
+import { useTheme } from '@/hooks/useTheme';
 import { useAuth } from '@/lib/auth';
 import { firebaseConfigured } from '@/lib/firebase';
 import { LoginPage, Logo } from '@/pages/LoginPage';
@@ -50,7 +53,11 @@ export default function App(): JSX.Element {
       </Centered>
     );
   }
-  return <Workspace />;
+  return (
+    <RulesProvider>
+      <Workspace />
+    </RulesProvider>
+  );
 }
 
 function Centered({ children }: { children: React.ReactNode }): JSX.Element {
@@ -70,6 +77,8 @@ function Workspace(): JSX.Element {
   const reminder = useBackupReminder();
   const [view, setView] = useState<View>('main');
   const [restoreOpen, setRestoreOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { theme, toggle: toggleTheme } = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const [backingUp, setBackingUp] = useState(false);
   const visible = useRef<{ apps: Application[]; label: string }>({ apps: [], label: '' });
@@ -91,10 +100,11 @@ function Workspace(): JSX.Element {
   };
 
   const menuItems: Array<{ label: React.ReactNode; onClick: () => void; hint?: string }> = [
+    { label: <Bi de="Einstellungen" ar="الإعدادات" />, hint: 'Prüfregeln', onClick: () => setSettingsOpen(true) },
     { label: <Bi de="CSV exportieren" ar="تصدير" />, hint: 'aktuelle Liste', onClick: () => downloadCsv(visible.current.apps) },
     { label: <Bi de="Drucken" ar="طباعة" />, hint: 'aktuelle Liste', onClick: () => window.print() },
     { label: <Bi de="Backup herunterladen" ar="نسخة احتياطية" />, hint: 'alles, JSON', onClick: () => void backup() },
-    { label: <Bi de="Backup wiederherstellen" ar="استعادة" />, onClick: () => setRestoreOpen(true) },
+    { label: <Bi de="Backup wiederherstellen" ar="استعادة النسخة" />, onClick: () => setRestoreOpen(true) },
   ];
 
   return (
@@ -104,7 +114,7 @@ function Workspace(): JSX.Element {
           <a href="/" className="flex items-center gap-2.5" title="Zu Easy Consulting">
             <Logo />
           </a>
-          <div className="mr-2 hidden leading-tight sm:block">
+          <div className="me-2 hidden leading-tight sm:block">
             <div className="text-sm font-semibold tracking-tight">
               Caller Log <span className="font-normal text-faint">Easy</span>
             </div>
@@ -133,15 +143,24 @@ function Workspace(): JSX.Element {
             ))}
           </nav>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ms-auto flex items-center gap-2">
             <span
               className={cx('hidden items-center gap-1.5 text-xs sm:inline-flex', online ? 'text-faint' : 'text-warn')}
               title={online ? 'Verbunden – Änderungen erscheinen live auf allen Geräten' : 'Offline'}
             >
               <span className={cx('h-1.5 w-1.5 rounded-full', online ? 'bg-ok' : 'bg-warn')} />
-              {online ? 'Live' : 'Offline'}
+              {online ? <Bi ar="مباشر" de="Live" /> : <Bi ar="غير متصل" de="Offline" />}
             </span>
             <span className="hidden max-w-[10rem] truncate text-xs text-muted md:inline">{user?.name}</span>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={toggleTheme}
+              aria-label={theme === 'dark' ? 'وضع النهار · Tagmodus' : 'الوضع الليلي · Nachtmodus'}
+              title={theme === 'dark' ? 'وضع النهار · Tag' : 'الوضع الليلي · Nacht'}
+            >
+              {theme === 'dark' ? <IconSun /> : <IconMoon />}
+            </Button>
             <div className="relative">
               <Button size="icon" variant="ghost" aria-label="Menü" aria-expanded={menuOpen} onClick={() => setMenuOpen((o) => !o)}>
                 <IconMenu />
@@ -149,7 +168,7 @@ function Workspace(): JSX.Element {
               {menuOpen && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} aria-hidden="true" />
-                  <div role="menu" className="absolute right-0 z-50 mt-1 w-64 overflow-hidden rounded-md border border-line-strong bg-surface py-1 shadow-2xl">
+                  <div role="menu" className="absolute end-0 z-50 mt-1 w-64 overflow-hidden rounded-md border border-line-strong bg-surface py-1 shadow-2xl">
                     {menuItems.map((item, i) => (
                       <button
                         key={i}
@@ -159,7 +178,7 @@ function Workspace(): JSX.Element {
                           setMenuOpen(false);
                           item.onClick();
                         }}
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-[13px] hover:bg-hover"
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2 text-start text-[13px] hover:bg-hover"
                       >
                         {item.label}
                         {item.hint !== undefined && <span className="text-[11px] text-faint">{item.hint}</span>}
@@ -167,15 +186,15 @@ function Workspace(): JSX.Element {
                     ))}
                     <div className="my-1 border-t border-line" />
                     <a href="/" role="menuitem" className="block px-3 py-2 text-[13px] text-muted hover:bg-hover hover:text-fg">
-                      Zu Easy Consulting
+                      <Bi ar="إلى Easy Consulting" de="zurück" />
                     </a>
                     <button
                       type="button"
                       role="menuitem"
                       onClick={() => void signOut()}
-                      className="block w-full px-3 py-2 text-left text-[13px] text-muted hover:bg-hover hover:text-fg"
+                      className="block w-full px-3 py-2 text-start text-[13px] text-muted hover:bg-hover hover:text-fg"
                     >
-                      Abmelden · {user?.name}
+                      <Bi ar="تسجيل الخروج" de={`Abmelden · ${user?.name ?? ''}`} />
                     </button>
                   </div>
                 </>
@@ -187,7 +206,7 @@ function Workspace(): JSX.Element {
 
       {!online && (
         <div className="no-print border-b border-warn/30 bg-warn-soft px-4 py-2 text-center text-[13px]">
-          Offline – Statuswechsel und Änderungen werden gespeichert und automatisch übertragen. Neue Anträge brauchen eine Verbindung.
+          <span className="ar">لا يوجد اتصال</span> · Offline – Änderungen werden nachgereicht. Neue Anträge brauchen eine Verbindung.
         </div>
       )}
 
@@ -195,14 +214,12 @@ function Workspace(): JSX.Element {
         <div className="no-print border-b border-line bg-surface">
           <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-2 text-[13px] sm:px-6">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            <span>
-              Wöchentliches Backup empfohlen · <span className="ar text-muted">يُنصح بنسخة احتياطية أسبوعية</span>
-            </span>
+            <Bi ar="يُنصح بنسخة احتياطية أسبوعية" de="Wöchentliches Backup empfohlen" />
             <Button size="sm" variant="primary" onClick={() => void backup()} disabled={backingUp}>
-              {backingUp ? 'Lädt …' : 'Backup herunterladen'}
+              {backingUp ? '…' : <Bi ar="تنزيل النسخة" de="Backup herunterladen" />}
             </Button>
             <button type="button" onClick={reminder.dismiss} className="text-xs text-faint hover:text-fg">
-              Später
+              <Bi ar="لاحقاً" de="Später" />
             </button>
           </div>
         </div>
@@ -213,6 +230,7 @@ function Workspace(): JSX.Element {
       </main>
 
       <RestoreDialog open={restoreOpen} onClose={() => setRestoreOpen(false)} />
+      <SettingsDialog open={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </div>
   );
 }

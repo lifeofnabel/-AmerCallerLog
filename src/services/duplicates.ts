@@ -1,40 +1,57 @@
 import type { Application, Category } from '@/types/application';
+import type { Rules } from './settings';
 import { nameKey } from '@/utils/text';
 
 /**
- * Duplikat-Prüfung beim Erfassen (Telefon + Name + Kategorie):
- *  A exact    – gleicher Name, gleiche Nummer, gleiche Kategorie → Warnung, Speichern nur nach Bestätigung
- *  B service  – gleicher Name, gleiche Nummer, andere Kategorie  → bekannter Kunde, neue Leistung (Hinweis)
- *  C family   – andere Namen mit derselben Nummer                → evtl. Familienmitglied (Hinweis)
- *  D none     – neue Nummer                                     → nichts
- * Stornierte Anträge zählen nicht als Duplikat, werden aber bei B/C mit angezeigt.
+ * Prüfung beim Erfassen, sobald Kategorie + Telefon (+ Name) stehen. Stornierte Anträge zählen nicht.
+ *  exact         – gleiche Nummer, gleicher Name, gleiche Kategorie → „schon erfasst als #12“ (Standard: sperren, Ausnahme möglich)
+ *  sameCategory  – gleiche Nummer, gleiche Kategorie, anderer Name   → Hinweis „#12 Name“ (Sohn/Tochter?)
+ *  otherCategory – gleiche Nummer, andere Kategorie                  → Hinweis „schon gehabt, andere Kategorie: #12“
+ * Was genau passiert, stellen die Regeln in den Einstellungen ein.
  */
-export type DuplicateKind = 'exact' | 'service' | 'family' | 'none';
-
 export interface DuplicateResult {
-  kind: DuplicateKind;
-  /** Genau gleiche aktive Anträge (Fall A). */
   exact: Application[];
-  /** Gleiche Person, andere Kategorie (Fall B). */
-  sameName: Application[];
-  /** Andere Namen unter derselben Nummer (Fall C). */
-  otherNames: string[];
+  sameCategory: Application[];
+  otherCategory: Application[];
+  /** none: speichern · soft: erst nach „Trotzdem speichern“ · hard: gar nicht */
+  block: 'none' | 'soft' | 'hard';
 }
 
-export const NO_DUPLICATE: DuplicateResult = { kind: 'none', exact: [], sameName: [], otherNames: [] };
+export const NO_DUPLICATE: DuplicateResult = { exact: [], sameCategory: [], otherCategory: [], block: 'none' };
 
-export function evaluateDuplicates(existing: Application[], name: string, category: Category): DuplicateResult {
-  if (existing.length === 0) return NO_DUPLICATE;
+const DAY = 86_400_000;
+const newestFirst = (a: Application, b: Application) => b.sequenceNumber - a.sequenceNumber;
+
+function inScope(app: Application, scope: Rules['exactScope'], now: number): boolean {
+  if (scope === 'open') return app.status === 'open';
+  if (scope === 'days30') return now - app.receivedAt.getTime() <= 30 * DAY;
+  return true;
+}
+
+export function evaluateDuplicates(
+  existing: Application[],
+  name: string,
+  category: Category,
+  rules: Rules,
+  now = Date.now(),
+): DuplicateResult {
+  const active = existing.filter((a) => a.status !== 'cancelled');
+  if (active.length === 0) return NO_DUPLICATE;
   const key = nameKey(name);
-  const byName = key === '' ? [] : existing.filter((a) => nameKey(a.name) === key);
-  const exact = byName.filter((a) => a.category === category && a.status !== 'cancelled');
-  const sameName = byName.filter((a) => a.category !== category);
-  const otherNames = [
-    ...new Map(existing.filter((a) => nameKey(a.name) !== key).map((a) => [nameKey(a.name), a.name])).values(),
-  ];
+  const same = active.filter((a) => a.category === category);
+  const sameName = key === '' ? [] : same.filter((a) => nameKey(a.name) === key);
 
-  if (exact.length > 0) return { kind: 'exact', exact, sameName, otherNames };
-  if (sameName.length > 0) return { kind: 'service', exact, sameName, otherNames };
-  if (otherNames.length > 0) return { kind: 'family', exact, sameName, otherNames };
-  return { ...NO_DUPLICATE };
+  // „Alles gleich“ nur, wenn die Regel es zählt; ältere gleiche Anträge außerhalb des Zeitraums werden zum Hinweis.
+  const exact = rules.exact === 'off' ? [] : sameName.filter((a) => inScope(a, rules.exactScope, now));
+  const exactIds = new Set(exact.map((a) => a.id));
+  const sameCategory = rules.sameCategory === 'off' ? [] : same.filter((a) => !exactIds.has(a.id));
+  const otherCategory = rules.otherCategory === 'off' ? [] : active.filter((a) => a.category !== category);
+
+  const block = exact.length === 0 ? 'none' : rules.exact === 'hard' ? 'hard' : rules.exact === 'block' ? 'soft' : 'none';
+  return {
+    exact: exact.sort(newestFirst),
+    sameCategory: sameCategory.sort(newestFirst),
+    otherCategory: otherCategory.sort(newestFirst),
+    block,
+  };
 }
