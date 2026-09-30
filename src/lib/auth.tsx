@@ -31,6 +31,8 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 const LINK_EMAIL_KEY = 'callerlog:link-email';
+/** Kommt der Link von der Anmeldeseite von Easy Consulting, steht die Adresse dort. */
+const EC_LINK_EMAIL_KEY = 'easy-consulting:link-email';
 
 function readStorage(key: string): string | null {
   try {
@@ -51,13 +53,14 @@ export function AuthProvider({ children }: { children: ReactNode }): JSX.Element
   useEffect(() => {
     const { auth } = getFirebase();
     if (!isSignInWithEmailLink(auth, window.location.href)) return;
-    const address = readStorage(LINK_EMAIL_KEY) ?? window.prompt('Zur Bestätigung bitte die E-Mail-Adresse eingeben:');
+    const address = readStorage(LINK_EMAIL_KEY) ?? readStorage(EC_LINK_EMAIL_KEY) ?? window.prompt('Zur Bestätigung bitte die E-Mail-Adresse eingeben:');
     if (address === null || address.trim() === '') return;
     void signInWithEmailLink(auth, address.trim(), window.location.href)
       .catch(() => setError('Der Anmeldelink ist abgelaufen oder wurde schon benutzt. Bitte neu anfordern.'))
       .finally(() => {
         try {
           window.localStorage.removeItem(LINK_EMAIL_KEY);
+          window.localStorage.removeItem(EC_LINK_EMAIL_KEY);
         } catch {
           /* egal */
         }
