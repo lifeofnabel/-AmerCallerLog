@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// Platzhalter für die Regeln von Easy Consulting – nur für den Emulator,
+// wenn kein Easy-Consulting-Ordner gefunden wird. Enthält nur, was Caller Log braucht.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId} {
+      allow get: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Alles andere ist gesperrt.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

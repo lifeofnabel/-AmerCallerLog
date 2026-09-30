@@ -1,0 +1,60 @@
+// Caller Log (Easy) – schnelle Antragserfassung von Amer Consulting. Alle Daten unter „callerlog_…“.
+// Zugang: jedes aktive Profil aus Easy Consulting (users/{uid}.active == true) – egal ob Mitarbeiter, Manager oder Admin.
+// Quelle: AmerCallerLog/rules/firestore.callerlog.rules – hier nicht von Hand ändern, sondern `npm run ec:rules` im Caller-Log-Repo.
+
+function callerlogStaff() {
+  return request.auth != null
+    && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.active == true;
+}
+
+function callerlogValid(d) {
+  return d.keys().hasAll(['sequenceNumber', 'name', 'nameKey', 'phone', 'phoneKey', 'category', 'details',
+      'status', 'receivedAt', 'day', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+    && d.keys().hasOnly(['sequenceNumber', 'name', 'nameKey', 'phone', 'phoneKey', 'category', 'details',
+      'status', 'previousStatus', 'receivedAt', 'day', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy', 'cancelledAt'])
+    && d.sequenceNumber is int && d.sequenceNumber > 0
+    && d.name is string && d.name.size() > 0 && d.name.size() <= 200
+    && d.phone is string && d.phone.size() > 0 && d.phone.size() <= 40
+    && d.details is string && d.details.size() <= 4000
+    && d.category in ['passport', 'id', 'poa']
+    && d.status in ['open', 'completed', 'cancelled']
+    && d.receivedAt is timestamp
+    && d.day is string && d.day.size() == 10;
+}
+
+// Ein Antrag heißt wie seine Nummer (#17 → „17“). Neu anlegen nur, wenn der Zähler im selben
+// Schreibvorgang mindestens bis zu dieser Nummer steht – so vergibt niemand eine Nummer am Zähler vorbei.
+match /callerlog_applications/{appId} {
+  allow read: if callerlogStaff();
+  allow create: if callerlogStaff()
+    && callerlogValid(request.resource.data)
+    && appId == string(request.resource.data.sequenceNumber)
+    && getAfter(/databases/$(database)/documents/callerlog_meta/counter).data.last >= request.resource.data.sequenceNumber;
+  // Nummer, Anlagezeit und Ersteller bleiben – ein zweiter Antrag kann einen bestehenden nie überschreiben.
+  allow update: if callerlogStaff()
+    && callerlogValid(request.resource.data)
+    && request.resource.data.sequenceNumber == resource.data.sequenceNumber
+    && request.resource.data.createdAt == resource.data.createdAt
+    && request.resource.data.createdBy == resource.data.createdBy;
+  allow delete: if callerlogStaff();
+}
+
+// Zähler: höchste je vergebene Nummer. Er wird nie kleiner – gelöschte Nummern kommen nie wieder.
+match /callerlog_meta/counter {
+  allow read: if callerlogStaff();
+  allow create: if callerlogStaff()
+    && request.resource.data.keys().hasOnly(['last', 'updatedAt'])
+    && request.resource.data.last is int && request.resource.data.last >= 0;
+  allow update: if callerlogStaff()
+    && request.resource.data.keys().hasOnly(['last', 'updatedAt'])
+    && request.resource.data.last is int && request.resource.data.last >= resource.data.last;
+}
+
+// Wochen-Backup: wann zuletzt jemand die Sicherung heruntergeladen hat.
+match /callerlog_meta/backup {
+  allow read: if callerlogStaff();
+  allow write: if callerlogStaff()
+    && request.resource.data.keys().hasOnly(['lastWeek', 'lastAt', 'lastBy'])
+    && request.resource.data.lastWeek is string;
+}
